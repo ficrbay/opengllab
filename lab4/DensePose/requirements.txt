@@ -1,0 +1,6 @@
+numpy>=1.13
+matplotlib
+opencv-python>=3.2
+setuptools
+Cython
+scipy
