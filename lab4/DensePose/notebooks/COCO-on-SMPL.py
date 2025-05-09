@@ -46,6 +46,13 @@ def smpl_view_set_axis_face(ax, azimuth=0):
     ax.set_zlim( 0.45 - max_range,   0.45 + max_range)
     ax.axis('off')
 
+def smpl_view_set_axis_face2(ax, azimuth=0, elev=0):
+    ax.view_init(elev, azimuth)
+    max_range = 0.1
+    ax.set_xlim(0   - max_range, 0   + max_range)
+    ax.set_ylim(0.7 - max_range, 0.7 + max_range)
+    ax.set_zlim(-3  - max_range, -3  + max_range)
+    ax.axis('off')
 ## Now let's rotate around the model and zoom into the face.
 # 可视化T-Pose的完整SMPL模型，只显示顶点
 
@@ -70,6 +77,15 @@ ax.scatter(Z,X,Y,s=0.2,c='k')
 smpl_view_set_axis_face(ax,-40)
 
 plt.show()
+
+fig_hand = plt.figure(figsize=[4, 4])             # 新窗口
+
+ax = fig_hand.add_subplot(111, projection='3d')   # ← 用 fig_hand ！
+ax.scatter(Z, X, Y, s=0.2, c='k')
+smpl_view_set_axis_face2(ax, 0, -90)              # 0° 方位，俯视 -90°
+plt.title('Right hand (SMPL)')                    # 随意加个标题
+
+plt.show()        # 再次 show，就会看到第二张单独的手部图
 
 import detectron.utils.densepose_methods as dp_utils
 
