@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "filesystem.h"
-#include <shader_m.h>
+#include <shader.h>
 #include <camera.h>
 #include <model.h>
 #include "texture_utils.h"
@@ -44,8 +44,12 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // glfw window creation
-    // --------------------
+// glfw window creation
+// --------------------
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE); // ← 新增
+#endif
+
     GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
     if (window == NULL)
     {
@@ -86,6 +90,8 @@ int main()
     Shader lightCubeShader("shaders/5.2.light_cube.vs", "shaders/5.2.light_cube.fs");
     Shader floorShader("shaders/1.1.depth_testing.vs", "shaders/1.1.depth_testing.fs");
     Shader skyboxShader("shaders/6.1.skybox.vs", "shaders/6.1.skybox.fs");
+    Shader grassShader("shaders/grass.vs", "shaders/grass.fs", "shaders/grass.gs");
+
     float vertices[] = {
         -0.5f, -0.5f, -0.5f, -0.5f, 0.5f,
         -0.5f, -0.5f, 0.5f, -0.5f, 0.5f,
@@ -113,6 +119,16 @@ int main()
         10.0f, -1.8f, 10.0f, 4.0f, 0.0f,
         -10.0f, -1.8f, -10.0f, 0.0f, 4.0f,
         10.0f, -1.8f, -10.0f, 4.0f, 4.0f};
+
+    // model_loading.cpp  — 定义草点
+    float grassPoints[] = {
+        //     x      y       z       r    g    b
+        -2.0f, -1.8f, 2.0f, 0.2f, 0.8f, 0.2f,
+        2.0f, -1.8f, 2.0f, 0.2f, 0.8f, 0.2f,
+        -2.0f, -1.8f, -2.0f, 0.2f, 0.8f, 0.2f,
+        2.0f, -1.8f, -2.0f, 0.2f, 0.8f, 0.2f,
+        0.0f, -1.8f, 0.0f, 0.2f, 0.8f, 0.2f,
+        0.0f, -1.8f, -3.0f, 0.2f, 0.8f, 0.2f};
 
     float skyboxVertices[] = {
         // positions
@@ -210,6 +226,21 @@ int main()
 
     unsigned int floorTex = loadTexture(FileSystem::getPath("./textures/ground.jpg").c_str());
 
+    unsigned int grassVAO, grassVBO;
+    glGenVertexArrays(1, &grassVAO);
+    glGenBuffers(1, &grassVBO);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, grassVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(grassPoints), grassPoints, GL_STATIC_DRAW);
+
+    // position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    // color
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
     vector<std::string> faces{
         FileSystem::getPath("./skybox/right.jpg"),
         FileSystem::getPath("./skybox/left.jpg"),
@@ -233,25 +264,44 @@ int main()
 
     // render loop
     // -----------
+    int currentViewIndex = 0;        // 当前视角编号
+    float viewSwitchInterval = 4.0f; // 每 2 秒切换一次视角
+    float lastSwitchTime = 0.0f;
+
     while (!glfwWindowShouldClose(window))
     {
-        // === [1] 时间和输入处理（你的代码正确） ===
+        // === [1] 时间和输入处理 ===
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-
         processInput(window);
 
+        // 每隔几秒切换视角
+        if (currentFrame - lastSwitchTime >= viewSwitchInterval)
+        {
+            currentViewIndex = (currentViewIndex + 1) % 3;
+            lastSwitchTime = currentFrame;
+        }
+
         // === [2] 清除缓冲区 ===
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT); // 设置为整个窗口
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // === [3] 设置通用矩阵 ===
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
-                                                (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
+        // === [3] 设置视角 ===
+        glm::mat4 view;
+        if (currentViewIndex == 0)
+            view = glm::lookAt(glm::vec3(-6, 2, 6), glm::vec3(0, -1, 0), glm::vec3(0, 1, 0));
+        else if (currentViewIndex == 1)
+            view = camera.GetViewMatrix();
+        else
+            view = glm::lookAt(glm::vec3(6, 6, 0), glm::vec3(0, -1, 0), glm::vec3(0, 1, 0));
 
-        // === [4] 画地板 ===
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f),
+                                                (float)SCR_WIDTH / SCR_HEIGHT,
+                                                0.1f, 100.0f);
+
+        // === 地板绘制 ===
         floorShader.use();
         floorShader.setMat4("view", view);
         floorShader.setMat4("projection", projection);
@@ -261,21 +311,30 @@ int main()
         glBindTexture(GL_TEXTURE_2D, floorTex);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // === [5] 画小灯光方块 ===
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f));
+        // === 草丛绘制 ===
+        grassShader.use();
+        grassShader.setMat4("view", view);
+        grassShader.setMat4("projection", projection);
+        grassShader.setMat4("model", glm::mat4(1.0f));
+        glBindVertexArray(grassVAO);
+        glDrawArrays(GL_POINTS, 0, 6);
+        // === 小灯光方块绘制 ===
+        glm::mat4 cubeModel = glm::mat4(1.0f);
+        cubeModel = glm::translate(cubeModel, lightPos);    // lightPos 是灯光位置
+        cubeModel = glm::scale(cubeModel, glm::vec3(0.2f)); // 缩成小立方
+
         lightCubeShader.use();
         lightCubeShader.setMat4("projection", projection);
         lightCubeShader.setMat4("view", view);
-        lightCubeShader.setMat4("model", model);
-        glBindVertexArray(lightCubeVAO);
+        lightCubeShader.setMat4("model", cubeModel);
+
+        glBindVertexArray(lightCubeVAO); // 你原先生成的小立方体 VAO
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        // ourModel.Draw(lightCubeShader);
+
+        // === 模型绘制 ===
         lightingShader.use();
         lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("viewPos", camera.Position);
-
         lightingShader.setVec3("light.ambient", 0.0f, 0.0f, 0.0f);
         lightingShader.setVec3("light.diffuse", 1.0f, 1.0f, 1.0f);
         lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
@@ -283,16 +342,15 @@ int main()
         lightingShader.setFloat("light.linear", 0.0f);
         lightingShader.setFloat("light.quadratic", 0.0f);
         lightingShader.setFloat("material.shininess", 100.0f);
-
         lightingShader.setMat4("projection", projection);
         lightingShader.setMat4("view", view);
-        model = glm::mat4(1.0f);
+        glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
         model = glm::scale(model, glm::vec3(0.8f));
         lightingShader.setMat4("model", model);
-
         ourModel.Draw(lightingShader);
 
+        // === 天空盒绘制 ===
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
         skyboxShader.setMat4("view", glm::mat4(glm::mat3(view)));
@@ -303,8 +361,7 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glDepthFunc(GL_LESS); // 恢复默认
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
+        // === [4] 交换缓冲区 ===
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
