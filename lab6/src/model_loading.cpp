@@ -70,7 +70,10 @@ int main()
     }
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(true);
+    // ───── 仅在加载 backpack 时翻转 ─────
+    stbi_set_flip_vertically_on_load(true); // 翻转 y 轴
+    Model ourModel(FileSystem::getPath("./backpack/backpack.obj"));
+    stbi_set_flip_vertically_on_load(false); // 还原，保证天空盒朝向正确
 
     // configure global opengl state
     // -----------------------------
@@ -100,16 +103,16 @@ int main()
         1, 5, 7, 7, 3,
         1};
 
-    // 地板顶点 + 纹理坐标
+    // 地板顶点 + 纹理坐标（10 × 10）
     float planeVertices[] = {
-        // positions          // texcoords
-        5.0f, -0.5f, 5.0f, 2.0f, 0.0f,
-        -5.0f, -0.5f, 5.0f, 0.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f, 0.0f, 2.0f,
+        // pos                  // tex
+        10.0f, -1.8f, 10.0f, 4.0f, 0.0f,
+        -10.0f, -1.8f, 10.0f, 0.0f, 0.0f,
+        -10.0f, -1.8f, -10.0f, 0.0f, 4.0f,
 
-        5.0f, -0.5f, 5.0f, 2.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f, 0.0f, 2.0f,
-        5.0f, -0.5f, -5.0f, 2.0f, 2.0f};
+        10.0f, -1.8f, 10.0f, 4.0f, 0.0f,
+        -10.0f, -1.8f, -10.0f, 0.0f, 4.0f,
+        10.0f, -1.8f, -10.0f, 4.0f, 4.0f};
 
     float skyboxVertices[] = {
         // positions
@@ -223,7 +226,7 @@ int main()
 
     // load models
     // -----------
-    Model ourModel(FileSystem::getPath("./backpack/backpack.obj"));
+    // Model ourModel(FileSystem::getPath("./backpack/backpack.obj"));
 
     // draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -268,7 +271,7 @@ int main()
         lightCubeShader.setMat4("model", model);
         glBindVertexArray(lightCubeVAO);
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
+        // ourModel.Draw(lightCubeShader);
         lightingShader.use();
         lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("viewPos", camera.Position);
@@ -284,8 +287,8 @@ int main()
         lightingShader.setMat4("projection", projection);
         lightingShader.setMat4("view", view);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f));
+        model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.8f));
         lightingShader.setMat4("model", model);
 
         ourModel.Draw(lightingShader);
